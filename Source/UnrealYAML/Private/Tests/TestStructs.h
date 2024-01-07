@@ -80,6 +80,14 @@ struct FParentStruct {
     TMap<TEnumAsByte<EAnEnum>, FChildStruct> MappedChildren;
 };
 
+USTRUCT()
+struct FEnumStruct {
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TEnumAsByte<EAnEnum> AnEnum;
+};
+
 UCLASS()
 class USimpleObject : public UObject{
     GENERATED_BODY()
