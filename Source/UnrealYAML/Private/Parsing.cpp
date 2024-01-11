@@ -157,12 +157,40 @@ bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Pro
         }
 
         return ParsedAllProperties;
+    } else if (const FSoftObjectProperty* SoftObjProperty = CastField<FSoftObjectProperty>(&Property)) {
+        if (!CheckScalarCanConvert<FString>(Ctx, TEXT("string"), Node)) {
+            return false;
+        }
+
+        const auto Value = Node.AsOptional<FString>();
+        if (Value.IsSet()) {
+            auto Object = FindObject<UObject>(Value.GetValue());
+            if (!IsValid(Object)) {
+                Ctx.AddError(*FString::Printf(TEXT("Cannot find object: %s"), *Value.GetValue()));
+                return false;
+            }
+
+            SoftObjProperty->SetObjectPropertyValue(PropertyValue, Object);
+        }
+    } else if (const FClassProperty* ClassProperty = CastField<FClassProperty>(&Property)) {
+        if (!CheckScalarCanConvert<FString>(Ctx, TEXT("string"), Node)) {
+            return false;
+        }
+
+        const auto Value = Node.AsOptional<FString>();
+        if (Value.IsSet()) {
+            auto FoundClass = FindClass(Value.GetValue());
+            if (!IsValid(FoundClass)) {
+                Ctx.AddError(*FString::Printf(TEXT("Cannot find class: %s"), *Value.GetValue()));
+                return false;
+            }
+
+            *const_cast<TObjectPtr<UObject>*>(&ClassProperty->GetPropertyValue(PropertyValue)) = FoundClass;
+        }
     } else if (const FObjectProperty* ObjectProperty = CastField<FObjectProperty>(&Property)) {
-        auto Ret = ParseIntoObject(Node, ObjectProperty->PropertyClass, PropertyValue, Ctx);
-        return Ret;
+        return ParseIntoObject(Node, ObjectProperty->PropertyClass, PropertyValue, Ctx);
     } else if (const FStructProperty* StructProperty = CastField<FStructProperty>(&Property)) {
-        auto Ret = ParseIntoStruct(Node, StructProperty->Struct, PropertyValue, Ctx);
-        return Ret;
+        return ParseIntoStruct(Node, StructProperty->Struct, PropertyValue, Ctx);
     } else if (const FMapProperty* MapProperty = CastField<FMapProperty>(&Property)) {
         if (!CheckNodeType(Ctx, EYamlNodeType::Map, TEXT("map"), Node)) {
             return false;
