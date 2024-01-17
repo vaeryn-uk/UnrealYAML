@@ -160,4 +160,15 @@ struct FUnrealReferenceTypeStruct {
     TSoftObjectPtr<UStaticMesh> SoftObjectPtr;
 };
 
+USTRUCT()
+struct FRequiredFieldsStruct {
+    GENERATED_BODY()
+
+    UPROPERTY(meta=(YamlRequired))
+    int Required;
+
+    UPROPERTY()
+    int Optional;
+};
+
 // Cannot test for complex yaml, as we can't represent mixed nested types :(

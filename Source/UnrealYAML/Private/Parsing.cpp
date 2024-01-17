@@ -8,6 +8,8 @@ FYamlParseIntoOptions FYamlParseIntoOptions::Strict() {
     FYamlParseIntoOptions Ret;
     Ret.CheckTypes = true;
     Ret.CheckEnums = true;
+    Ret.CheckRequired = true;
+    Ret.CheckAdditionalProperties = true;
     return Ret;
 }
 
@@ -255,16 +257,38 @@ bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* S
         return false;
     }
 
-    // TODO: Check all YAML keys are consumed.
+    auto RemainingKeys = Node.Keys<FString>().Array();
 
     bool ParsedAllProperties = true;
     for (TFieldIterator<FProperty> It(Struct); It; ++It) {
         FString Key = It->GetName();
-        if (!ParseIntoProperty(Node[Key], **It, It->ContainerPtrToValuePtr<void>(StructValue), Ctx.PushStack(*Key))) {
+
+        Ctx.PushStack(*Key);
+
+        if (It->HasMetaData(YamlRequiredSpecifier) && !Node[Key].IsDefined()) {
+            Ctx.AddError(TEXT("yaml does not contain this required field"));
+        } else if (!ParseIntoProperty(Node[Key], **It, It->ContainerPtrToValuePtr<void>(StructValue), Ctx)) {
             ParsedAllProperties = false;
         }
 
+        const auto MatchingKey = RemainingKeys.IndexOfByPredicate([&Key](const FString& Element) {
+            // Note we use == operator here to parallel how yaml-cpp finds keys internally.
+            // For FString, this is a case-insensitive match.
+            return Element == Key;
+        });
+        if (MatchingKey != INDEX_NONE) {
+            RemainingKeys.RemoveAt(MatchingKey);
+        }
+
         Ctx.PopStack();
+    }
+
+    if (Ctx.Options.CheckAdditionalProperties && RemainingKeys.Num()) {
+        for (const auto Key : RemainingKeys) {
+            Ctx.PushStack(*Key);
+            Ctx.AddError(TEXT("additional property not match a property in USTRUCT"));
+            Ctx.PopStack();
+        }
     }
 
     return ParsedAllProperties;

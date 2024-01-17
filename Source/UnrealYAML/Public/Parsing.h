@@ -45,6 +45,20 @@ struct UNREALYAML_API FYamlParseIntoOptions {
      */
     UPROPERTY()
     bool CheckEnums = false;
+
+    /**
+     * Inspects fields' UPROPERTY meta for a "YamlRequired" specifier on the USTRUCT being parsed in to.
+     * If present, and an incoming YAML structure is missing this property, a validation error will occur.
+     */
+    UPROPERTY()
+    bool CheckRequired = false;
+
+    /**
+     * If true, validation will fail if the YAML contains properties that do not match with
+     * a property in the struct being parsed.
+     */
+    UPROPERTY()
+    bool CheckAdditionalProperties = false;
 };
 
 /**
@@ -107,6 +121,10 @@ class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     // of the Parsing all Fields further (basically a shortcut with neater results). This is only used to determine *if* an
     // FProperty can be converted directly, the if-else chain to check what type it actually is, is in ParseIntoNativeType itself.
     const static TArray<FString> NativeTypes;
+
+    // UPROPERTY(meta=YamlRequired) indicates a USTRUCT's property is required when parsing in to it
+    // from a YAML node. This is the string we look for.
+    inline const static FName YamlRequiredSpecifier = FName(TEXT("YamlRequired"));
 
 public:
     // Parsing of Strings/Files into Nodes -----------------------------------------------------------------------------
