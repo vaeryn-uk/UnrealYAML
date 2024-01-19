@@ -171,4 +171,19 @@ struct FRequiredFieldsStruct {
     int Optional;
 };
 
+USTRUCT()
+struct FCustomType {
+    GENERATED_BODY()
+
+    FString Value;
+};
+
+USTRUCT()
+struct FWithCustomType {
+    GENERATED_BODY()
+
+    UPROPERTY()
+    FCustomType CustomType;
+};
+
 // Cannot test for complex yaml, as we can't represent mixed nested types :(
