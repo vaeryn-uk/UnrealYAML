@@ -451,8 +451,31 @@ randomprop: [1, 2, 3]
 )yaml");
 
         AssertInvalidParseInto<FSimpleStruct>(Yaml, TEXT("Additional properties"), this, {
-            ".randomprop: additional property not match a property in USTRUCT"
+            ".randomprop: additional property does not match a property in USTRUCT"
         });
+    }
+
+    // Tests that custom types can be handled via custom TypeHandlers.
+    {
+        const auto Yaml = TEXT("customtype: 13");
+        FYamlNode Node;
+        UYamlParsing::ParseYaml(Yaml, Node);
+
+        FWithCustomType Struct;
+        FYamlParseIntoCtx Result;
+        auto Options = FYamlParseIntoOptions::Strict();
+        Options.TypeHandlers.Add("FCustomType", [](const FYamlNode& YamlNode, const UScriptStruct* ScriptStruct,
+                                                   void* StructValue, FYamlParseIntoCtx& YamlParseIntoCtx) {
+            auto AsNumber = YamlNode.As<int>();
+            FCustomType Ct;
+            Ct.Value = FString::FromInt(AsNumber);
+            *static_cast<FCustomType*>(StructValue) = Ct;
+        });
+
+        ParseNodeIntoStruct(Node, Struct, Result, Options);
+
+        TestTrue("CustomType: success", Result.Success());
+        TestEqual("CustomType: value", Struct.CustomType.Value, "13");
     }
 
     return !HasAnyErrors();

@@ -59,6 +59,23 @@ struct UNREALYAML_API FYamlParseIntoOptions {
      */
     UPROPERTY()
     bool CheckAdditionalProperties = false;
+
+    typedef TFunction<void (const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
+                                  struct FYamlParseIntoCtx& Ctx)> FTypeHandler;
+
+    /**
+     * Define ParseInto handling for your own types here. By default, ParseIntoStruct will handle
+     * some common Unreal types (see ParseIntoNativeType). This allows for defining additional types
+     * that need some special handling.
+     *
+     * The key is the CPP type name, and the associated function is responsible for interpreting the
+     * given node, constructing the custom type, then setting it given in StructValue. Any
+     * errors encountered can be added to Ctx with Ctx.AddError.
+     *
+     * The provided StructValue is a pointer where the new value must be set. See ParseIntoNativeType
+     * for examples of how this ptr is converted to a typed ptr, then the value set.
+     */
+    TMap<FString, FTypeHandler> TypeHandlers;
 };
 
 /**
@@ -88,6 +105,8 @@ struct UNREALYAML_API FYamlParseIntoCtx {
 
     friend class UYamlParsing;
 
+    void AddError(const TCHAR* Err);
+
 private:
 
     // Stack access.
@@ -95,8 +114,6 @@ private:
     FYamlParseIntoCtx& PushStack(const FYamlNode& Key);
     FYamlParseIntoCtx& PushStack(const int32 Index);
     void PopStack();
-
-    void AddError(const TCHAR* Err);
 
     TArray<FString> Stack = {TEXT("")};
     FString StackStr() const;

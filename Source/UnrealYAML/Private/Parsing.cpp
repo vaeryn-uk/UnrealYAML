@@ -249,6 +249,12 @@ bool UYamlParsing::ParseIntoObject(const FYamlNode& Node, const UClass* Object, 
 bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoCtx& Ctx) {
     UE_LOG(LogYamlParsing, Verbose, TEXT("Parsing Node into Struct '%s'"), *Struct->GetName())
 
+    // Check for custom handlers provided in options first.
+    if (const auto CustomHandler = Ctx.Options.TypeHandlers.Find(Struct->GetStructCPPName()); CustomHandler != nullptr) {
+        (*CustomHandler)(Node, Struct, StructValue, Ctx);
+        return true;
+    }
+
     if (NativeTypes.Contains(Struct->GetStructCPPName())) {
         return ParseIntoNativeType(Node, Struct, StructValue, Ctx);
     }
@@ -265,7 +271,13 @@ bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* S
 
         Ctx.PushStack(*Key);
 
-        if (It->HasMetaData(YamlRequiredSpecifier) && !Node[Key].IsDefined()) {
+        bool IsRequired = false;
+#if WITH_EDITORONLY_DATA
+        // UPROPERTY metadata is not available outside of the editor.
+        IsRequired = It->HasMetaData(YamlRequiredSpecifier);
+#endif
+
+        if (IsRequired && !Node[Key].IsDefined()) {
             Ctx.AddError(TEXT("yaml does not contain this required field"));
         } else if (!ParseIntoProperty(Node[Key], **It, It->ContainerPtrToValuePtr<void>(StructValue), Ctx)) {
             ParsedAllProperties = false;
@@ -286,7 +298,7 @@ bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* S
     if (Ctx.Options.CheckAdditionalProperties && RemainingKeys.Num()) {
         for (const auto Key : RemainingKeys) {
             Ctx.PushStack(*Key);
-            Ctx.AddError(TEXT("additional property not match a property in USTRUCT"));
+            Ctx.AddError(TEXT("additional property does not match a property in USTRUCT"));
             Ctx.PopStack();
         }
     }
