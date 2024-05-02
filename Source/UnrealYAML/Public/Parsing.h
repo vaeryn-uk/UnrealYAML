@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "Node.h"
+#include "UnrealYAMLNode.h"
 #include "Parsing.generated.h"
 
 
@@ -118,6 +118,38 @@ private:
     TArray<FString> Stack = {TEXT("")};
     FString StackStr() const;
 };
+// ---------------------------
+//  Forward declarations
+// ---------------------------
+template<typename T>
+bool ParseNodeIntoStruct(
+    const FYamlNode&,
+    T&,
+    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
+);
+
+template<typename T>
+bool ParseNodeIntoStruct(
+    const FYamlNode&,
+    T&,
+    FYamlParseIntoCtx&,
+    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
+);
+
+bool ParseNodeIntoStruct(
+    const FYamlNode&,
+    const UScriptStruct*,
+    void*,
+    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
+);
+
+bool ParseNodeIntoStruct(
+    const FYamlNode&,
+    const UScriptStruct*,
+    void*,
+    FYamlParseIntoCtx&,
+    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
+);
 
 UCLASS(BlueprintType)
 class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
@@ -127,6 +159,7 @@ class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     friend bool ParseNodeIntoStruct(const FYamlNode&, T&, const FYamlParseIntoOptions&);
     template<typename T>
     friend bool ParseNodeIntoStruct(const FYamlNode&, T&, FYamlParseIntoCtx&, const FYamlParseIntoOptions&);
+    
     friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, const FYamlParseIntoOptions&);
     friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, FYamlParseIntoCtx&, const FYamlParseIntoOptions&);
     
@@ -266,14 +299,14 @@ private:
 /** C++ Wrapper for UYamlParsing::ParseIntoStruct */
 template<typename T>
 FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn,
-                                       const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()) {
+                                       const FYamlParseIntoOptions& Options) {
     FYamlParseIntoCtx Result;
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
 }
 template<typename T>
 FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn, FYamlParseIntoCtx& Result,
-                                       const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()) {
+                                       const FYamlParseIntoOptions& Options) {
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
 }
@@ -290,14 +323,14 @@ FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn) {
  * data tables.
  */
 inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()) {
+                                const FYamlParseIntoOptions& Options) {
     FYamlParseIntoCtx Ctx;
     Ctx.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Ctx);
 }
 inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
                                 FYamlParseIntoCtx& Result,
-                                const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()) {
+                                const FYamlParseIntoOptions& Options) {
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Result);
 }
