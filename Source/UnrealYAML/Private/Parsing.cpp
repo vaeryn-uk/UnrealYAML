@@ -6,7 +6,7 @@ DEFINE_LOG_CATEGORY(LogYamlParsing)
 
 FYamlParseIntoOptions FYamlParseIntoOptions::Strict() {
     FYamlParseIntoOptions Ret;
-    Ret.CheckTypes = true;
+    Ret.StrictTypes = true;
     Ret.CheckEnums = true;
     Ret.CheckRequired = true;
     Ret.CheckAdditionalProperties = true;
@@ -85,7 +85,7 @@ bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Pro
             const int64 Index = EnumProperty->GetEnum()->GetIndexByNameString(Node.As<FString>());
             EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(PropertyValue, Index);
         }
-    } else if (const FByteProperty* ByteProperty = CastField<FByteProperty>(&Property); ByteProperty && ByteProperty->GetIntPropertyEnum()) {
+    } else if (const FByteProperty* ByteProperty = CastField<FByteProperty>(&Property); ByteProperty && ByteProperty->IsEnum()) {
         if (CheckEnumValue(Ctx, Node, ByteProperty->GetIntPropertyEnum())) {
             const int64 Index = ByteProperty->GetIntPropertyEnum()->GetIndexByNameString(Node.As<FString>());
             ByteProperty->SetIntPropertyValue(PropertyValue, Index);
@@ -127,6 +127,15 @@ bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Pro
         const auto Value = Node.AsOptional<FString>();
         if (Value.IsSet()) {
             *const_cast<FString*>(&StringProperty->GetPropertyValue(PropertyValue)) = Value.GetValue();
+        }
+    } else if (const FNameProperty* NameProperty = CastField<FNameProperty>(&Property)) {
+        if (!CheckScalarCanConvert<FString>(Ctx, TEXT("string"), Node)) {
+            return false;
+        }
+
+        const auto Value = Node.AsOptional<FName>();
+        if (Value.IsSet()) {
+            NameProperty->SetPropertyValue(PropertyValue, Value.GetValue());
         }
     } else if (const FTextProperty* TextProperty = CastField<FTextProperty>(&Property)) {
         if (!CheckScalarCanConvert<FText>(Ctx, TEXT("string"), Node)) {
@@ -337,7 +346,7 @@ bool UYamlParsing::ParseIntoNativeType(const FYamlNode& Node, const UScriptStruc
 
 bool UYamlParsing::CheckNodeType(FYamlParseIntoCtx& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName,
     const FYamlNode& Node) {
-    if (Ctx.Options.CheckTypes && Node.IsDefined() && Node.Type() != Expected) {
+    if (Ctx.Options.StrictTypes && Node.IsDefined() && Node.Type() != Expected) {
         Ctx.AddError(*FString::Printf(TEXT("value is not a %s"), TypeName));
         return false;
     }
