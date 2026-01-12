@@ -181,6 +181,9 @@ struct FUnrealTypeStruct {
 
     UPROPERTY()
     FText Text;
+
+    UPROPERTY()
+    FName Name;
 };
 
 USTRUCT()
