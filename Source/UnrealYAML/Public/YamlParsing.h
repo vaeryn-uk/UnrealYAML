@@ -163,14 +163,11 @@ class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     GENERATED_BODY()
     
     template<typename T>
-    friend bool ParseNodeIntoObject(const FYamlNode&, T*, const FYamlParseIntoOptions&);
+    friend FYamlParseIntoResult ParseNodeIntoObject(const FYamlNode&, T*, const FYamlParseIntoOptions&);
     template<typename T>
-    friend bool ParseNodeIntoStruct(const FYamlNode&, T&, const FYamlParseIntoOptions&);
-    template<typename T>
-    friend bool ParseNodeIntoStruct(const FYamlNode&, T&, FYamlParseIntoResult&, const FYamlParseIntoOptions&);
+    friend FYamlParseIntoResult ParseNodeIntoStruct(const FYamlNode&, T&, const FYamlParseIntoOptions&);
     
-    friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, const FYamlParseIntoOptions&);
-    friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, FYamlParseIntoResult&, const FYamlParseIntoOptions&);
+    friend FYamlParseIntoResult ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, const FYamlParseIntoOptions&);
 
     // Some conversion are defined in UnrealTypes.h. But FProperty does not provide a way to retrieve the Type, except as
     // an FString. This provides a list of all Types (as String) that can be directly converted via those conversion instead
@@ -309,42 +306,33 @@ private:
 
 /** C++ Wrapper for UYamlParsing::ParseIntoObject */
 template<typename T>
-FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn,
-                                       const FYamlParseIntoOptions& Options = {}) {
+FORCENOINLINE FYamlParseIntoResult ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn,
+                                                       const FYamlParseIntoOptions& Options = {}) {
     static_assert(TIsDerivedFrom<T, UObject>::Value);
     FYamlParseIntoResult Result;
     Result.Options = Options;
-    return UYamlParsing::ParseIntoObject(Node, T::StaticClass(), ObjectIn, Result);
+    UYamlParsing::ParseIntoObject(Node, T::StaticClass(), ObjectIn, Result);
+    return Result;
 }
 
 /** C++ Wrapper for UYamlParsing::ParseIntoStruct */
 template<typename T>
-FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn,
-                                       const FYamlParseIntoOptions& Options = {}) {
-    FYamlParseIntoResult Result;
+FORCENOINLINE FYamlParseIntoResult ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn,
+                                                       const FYamlParseIntoOptions& Options = {}) {
+    FYamlParseIntoResult Result = FYamlParseIntoResult();
     Result.Options = Options;
-    return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
-}
-template<typename T>
-FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn, FYamlParseIntoResult& Result,
-                                       const FYamlParseIntoOptions& Options = {}) {
-    Result.Options = Options;
-    return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
+    UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
+    return Result;
 }
 
 /** Parse the given YAML in to a struct whose type is not known at compile time. This is useful
  * when dealing with struct of an unknown types in C++ contexts, such as interacting with Unreal's
  * data tables.
  */
-inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                const FYamlParseIntoOptions& Options = {}) {
-    FYamlParseIntoResult Ctx;
-    Ctx.Options = Options;
-    return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Ctx);
-}
-inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                FYamlParseIntoResult& Result,
-                                const FYamlParseIntoOptions& Options = {}) {
+inline FYamlParseIntoResult ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
+                                                const FYamlParseIntoOptions& Options = {}) {
+    FYamlParseIntoResult Result = FYamlParseIntoResult();
     Result.Options = Options;
-    return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Result);
+    UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Result);
+    return Result;
 }

@@ -46,8 +46,7 @@ mappedchildren:
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FParentStruct Struct;
-        FYamlParseIntoResult Result;
-        ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
+        FYamlParseIntoResult Result = ParseNodeIntoStruct(Node, Struct, FYamlParseIntoOptions::Strict());
         
         It("Embedded child values", [this, Result, Struct]() {
             TestTrue("Success", Result.Success());
