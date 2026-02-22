@@ -15,7 +15,9 @@ Welcome to the UnrealYAML Plugin, a Plugin that allows the parsing and emitting 
 - Usable in Blueprint and C++
 - Automatic Parsing to Unreal Struct using the Unreal Reflection System
 	- `UPROPERTY` support:
-		- Simple scalar values, such as int, float, FString and FText
+		- Simple scalar values, such as `int`, `float`, `FString`, `FName` and `FText`
+		- `UEnum` values, which can be expressed in YAML as both string (case-insensitive) and numeric
+		  representations.
 		- `TMap` and `TArray`, and nested `USTRUCT`s 
 		- Object references: `TSoftObjectPtr` and `TSubclassOf`
 		- Custom conversions for your own additional types. See `FYamlParseIntoOptions.TypeHandlers`.

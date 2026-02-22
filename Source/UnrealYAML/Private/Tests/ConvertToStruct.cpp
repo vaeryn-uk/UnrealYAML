@@ -100,9 +100,8 @@ mappedchildren:
     value1: [1, 2, 3]
     value3: 13
 )yaml");
-        const auto Test = TEXT("Invalid parent child");
-
-        AssertInvalidParseInto<FParentStruct>(Yaml, Test, this, {
+        
+        AssertInvalidParseInto<FParentStruct>(Yaml, TEXT("Invalid parent child"), this, {
             ".Embedded.SomeValues: value is not a sequence",
             ".Embedded.AFloat: cannot convert \"foobar\" to type float",
             ".Children.[0]: value is not a map",
@@ -117,7 +116,7 @@ mappedchildren:
         UYamlParsing::ParseYaml("anenum: value3", Node);
 
         FEnumStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
 
         TestTrue("Enum parse", Result.Success());
@@ -132,19 +131,47 @@ mappedchildren:
         UYamlParsing::ParseYaml("anenum: VALUE2", Node);
 
         FEnumAsByteStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
 
         TestTrue("EnumAsByte parse", Result.Success());
         TestEqual("EnumAsByte parse value", Struct.AnEnum, TEnumAsByte(EAnEnum::Value2));
     }
 
+    // Test parsing in to an enum (as integer).
+    {
+        FYamlNode Node;
+        UYamlParsing::ParseYaml("anenum: 0", Node);
+
+        FEnumStruct Struct;
+        FYamlParseIntoResult Result;
+        ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
+
+        TestTrue("Enum(int) parse", Result.Success());
+        TestEqual("Enum(int) parse value", Struct.AnEnum, EAnEnumClass::Value1);
+
+        TestTrue("Enum(int) parse operator bool()", Result);
+    }
+
+    // Test parsing in to an TEnumAsByte wrapper (as integer).
+    {
+        FYamlNode Node;
+        UYamlParsing::ParseYaml("anenum: 1", Node);
+
+        FEnumAsByteStruct Struct;
+        FYamlParseIntoResult Result;
+        ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
+
+        TestTrue("EnumAsByte(int) parse", Result.Success());
+        TestEqual("EnumAsByte(int) parse value", Struct.AnEnum, TEnumAsByte(EAnEnum::Value2));
+    }
+
     // Test invalid parsing for enums.
     {
-        const auto Yaml = TEXT("anenum: notaknownvalue");
+        const auto Yaml = TEXT("anenum: []");
         const auto Test = TEXT("Invalid EnumClass");
         AssertInvalidParseInto<FEnumStruct>(Yaml, Test, this, {
-            ".AnEnum: \"notaknownvalue\" is not an allowed value for enum EAnEnumClass",
+            ".AnEnum: YAML type \"sequence\" is not an allowed value for enum EAnEnumClass",
         });
     }
 
@@ -163,7 +190,7 @@ mappedchildren:
         UYamlParsing::ParseYaml("{}", Node);
 
         FDefaultStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         TestFalse("Default", ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict()));
 
         TestTrue("Default success", Result.Success());
@@ -193,7 +220,7 @@ amap:
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FDefaultStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         TestFalse("DefaultOverwrite", ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict()));
 
         TestTrue("DefaultOverwrite success", Result.Success());
@@ -226,7 +253,7 @@ name: MyTestName
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FUnrealTypeStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         TestTrue("UnrealTypes", ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict()));
 
         TestTrue("UnrealTypes success", Result.Success());
@@ -258,7 +285,7 @@ softObjectPtr: "/Script/Engine.StaticMesh'/Engine/BasicShapes/Cube.Cube'"
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FUnrealReferenceTypeStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         TestTrue("UnrealReferenceTypes", ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict()));
 
         TestTrue("UnrealReferenceTypes success", Result.Success());
@@ -281,7 +308,7 @@ subclassOf: "/Script/Engine.Blueprint'/Engine/EngineSky/BP_Sky_Sphere.BP_Sky_Sph
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FUnrealReferenceTypeStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
 
         TestTrue("UnrealReferenceTypes success", Result.Success());
@@ -309,7 +336,7 @@ softObjectPtr: "not a uobject"
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FSimpleStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
 
         TestTrue("NegativeInteger", Result.Success());
@@ -332,7 +359,7 @@ softObjectPtr: "not a uobject"
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FRequiredFieldsStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
 
         TestTrue("Required: present", Result.Success());
@@ -363,10 +390,10 @@ randomprop: [1, 2, 3]
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FWithCustomType Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         auto Options = FYamlParseIntoOptions::Strict();
         Options.TypeHandlers.Add("FCustomType", [](const FYamlNode& YamlNode, const UScriptStruct* ScriptStruct,
-                                                   void* StructValue, FYamlParseIntoCtx& YamlParseIntoCtx) {
+                                                   void* StructValue, FYamlParseIntoResult& YamlParseIntoCtx) {
             auto AsNumber = YamlNode.As<int>();
             FCustomType Ct;
             Ct.Value = FString::FromInt(AsNumber);
@@ -403,11 +430,15 @@ void AssertInvalidParseInto(const TCHAR* Yaml, const TCHAR* What, ConvertToStruc
     UYamlParsing::ParseYaml(Yaml, Node);
 
     StructType Struct;
-    FYamlParseIntoCtx Result;
+    FYamlParseIntoResult Result;
     ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
 
     TestCase->TestFalse(FString::Printf(TEXT("%ls fails as expected"), What), Result.Success());
     if (!TestCase->TestEqual(FString::Printf(TEXT("%ls error count"), What), Result.Errors.Num(), Errors.Num())) {
+        for (const auto& Entry : Result.Errors) {
+            TestCase->AddError(FString::Printf(TEXT("Parse error: %s"), *Entry));
+        }
+        
         return;
     }
 
