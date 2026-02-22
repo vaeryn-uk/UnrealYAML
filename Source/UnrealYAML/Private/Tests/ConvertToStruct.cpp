@@ -108,6 +108,8 @@ mappedchildren:
 
         TestTrue("Enum parse", Result.Success());
         TestEqual("Enum parse value", Struct.AnEnum, EAnEnumClass::Value3);
+
+        TestTrue("Enum parse operator bool()", Result);
     }
 
     // Test parsing in to an TEnumAsByte wrapper.
