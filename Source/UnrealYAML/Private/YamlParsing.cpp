@@ -8,39 +8,39 @@ FYamlParseIntoOptions FYamlParseIntoOptions::Strict() {
     FYamlParseIntoOptions Ret;
     Ret.StrictTypes = true;
     Ret.CheckEnums = true;
-    Ret.CheckRequired = true;
-    Ret.CheckAdditionalProperties = true;
+    Ret.RespectRequiredProperties = true;
+    Ret.AllowUnusedValues = false;
     return Ret;
 }
 
-FYamlParseIntoCtx& FYamlParseIntoCtx::PushStack(const TCHAR* Property) {
+FYamlParseIntoResult& FYamlParseIntoResult::PushStack(const TCHAR* Property) {
     Stack.Add(Property);
     return *this;
 }
 
-FYamlParseIntoCtx& FYamlParseIntoCtx::PushStack(const FYamlNode& Key) {
+FYamlParseIntoResult& FYamlParseIntoResult::PushStack(const FYamlNode& Key) {
     Stack.Add(Key.Scalar());
     return *this;
 }
 
-FYamlParseIntoCtx& FYamlParseIntoCtx::PushStack(const int32 Index) {
+FYamlParseIntoResult& FYamlParseIntoResult::PushStack(const int32 Index) {
     Stack.Add(FString::Printf(TEXT("[%d]"), Index));
     return *this;
 }
 
-void FYamlParseIntoCtx::PopStack() {
+void FYamlParseIntoResult::PopStack() {
     Stack.RemoveAt(Stack.Num() - 1);
 }
 
-void FYamlParseIntoCtx::AddError(const TCHAR* Err) {
+void FYamlParseIntoResult::AddError(const TCHAR* Err) {
     Errors.Add(FString::Printf(TEXT("%s: %s"), *StackStr(), Err));
 }
 
-bool FYamlParseIntoCtx::Success() const {
+bool FYamlParseIntoResult::Success() const {
     return Errors.Num() == 0;
 }
 
-FString FYamlParseIntoCtx::StackStr() const {
+FString FYamlParseIntoResult::StackStr() const {
     return FString::Join(Stack, TEXT("."));
 }
 
@@ -71,7 +71,7 @@ void UYamlParsing::WriteYamlToFile(const FString Path, const FYamlNode Node) {
 const TArray<FString> UYamlParsing::NativeTypes = {"FString", "FText", "FVector", "FVector2D", "FQuat", "FTransform", "FColor",
                                                    "FLinearColor", "FRotator"};
 
-bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Property, void* PropertyValue, FYamlParseIntoCtx& Ctx) {
+bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Property, void* PropertyValue, FYamlParseIntoResult& Ctx) {
     UE_LOG(LogYamlParsing, Verbose, TEXT("Parsing Node into Property '%s' of type '%s'"), *Property.GetName(),
            *Property.GetCPPType())
 
@@ -233,7 +233,7 @@ bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Pro
     return true;
 }
 
-bool UYamlParsing::ParseIntoObject(const FYamlNode& Node, const UClass* Object, void* ObjectValue, FYamlParseIntoCtx& Ctx) {
+bool UYamlParsing::ParseIntoObject(const FYamlNode& Node, const UClass* Object, void* ObjectValue, FYamlParseIntoResult& Ctx) {
     UE_LOG(LogYamlParsing, Verbose, TEXT("Parsing Node into Object '%s'"), *Object->GetName())
 
     if (!CheckNodeType(Ctx, EYamlNodeType::Map, TEXT("map"), Node)) {
@@ -253,7 +253,7 @@ bool UYamlParsing::ParseIntoObject(const FYamlNode& Node, const UClass* Object, 
     return ParsedAllProperties;
 }
 
-bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoCtx& Ctx) {
+bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Ctx) {
     UE_LOG(LogYamlParsing, Verbose, TEXT("Parsing Node into Struct '%s'"), *Struct->GetName())
 
     // Check for custom handlers provided in options first.
@@ -302,7 +302,7 @@ bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* S
         Ctx.PopStack();
     }
 
-    if (Ctx.Options.CheckAdditionalProperties && RemainingKeys.Num()) {
+    if (!Ctx.Options.AllowUnusedValues && RemainingKeys.Num()) {
         for (const auto& Key : RemainingKeys) {
             Ctx.PushStack(*Key);
             Ctx.AddError(TEXT("additional property does not match a property in USTRUCT"));
@@ -313,7 +313,7 @@ bool UYamlParsing::ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* S
     return ParsedAllProperties;
 }
 
-bool UYamlParsing::ParseIntoNativeType(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoCtx& Ctx) {
+bool UYamlParsing::ParseIntoNativeType(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Ctx) {
     const FString Type = Struct->GetStructCPPName();
 
     if (Type == "FString") {
@@ -342,7 +342,7 @@ bool UYamlParsing::ParseIntoNativeType(const FYamlNode& Node, const UScriptStruc
     return true;
 }
 
-bool UYamlParsing::CheckNodeType(FYamlParseIntoCtx& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName,
+bool UYamlParsing::CheckNodeType(FYamlParseIntoResult& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName,
     const FYamlNode& Node) {
     if (Ctx.Options.StrictTypes && Node.IsDefined() && Node.Type() != Expected) {
         Ctx.AddError(*FString::Printf(TEXT("value is not a %s"), TypeName));
@@ -352,7 +352,7 @@ bool UYamlParsing::CheckNodeType(FYamlParseIntoCtx& Ctx, const EYamlNodeType Exp
     return true;
 }
 
-int64 UYamlParsing::ResolveEnumValue(FYamlParseIntoCtx& Ctx, const FYamlNode& Node, const UEnum* Enum) {
+int64 UYamlParsing::ResolveEnumValue(FYamlParseIntoResult& Ctx, const FYamlNode& Node, const UEnum* Enum) {
     if (Node.CanConvertTo<int>()) {
         if (Ctx.Options.CheckEnums && Node.IsDefined()) {
             const int Value(Node.As<int>());
