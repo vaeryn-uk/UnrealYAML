@@ -24,6 +24,27 @@ struct FSimpleStruct {
     TMap<FString, int32> Map;
 };
 
+UCLASS()
+class USimpleObject : public UObject{
+    GENERATED_BODY()
+
+public:
+    UPROPERTY()
+    FString Str;
+
+    UPROPERTY()
+    int32 Int{};
+
+    UPROPERTY()
+    bool Bool{};
+
+    UPROPERTY()
+    TArray<int32> Arr;
+
+    UPROPERTY()
+    TMap<FString, int32> Map;
+};
+
 // SimpleYaml
 USTRUCT()
 struct FDefaultedStruct {

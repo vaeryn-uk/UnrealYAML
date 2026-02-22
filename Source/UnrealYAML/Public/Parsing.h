@@ -125,42 +125,15 @@ private:
     TArray<FString> Stack = {TEXT("")};
     FString StackStr() const;
 };
-// ---------------------------
-//  Forward declarations
-// ---------------------------
-template<typename T>
-bool ParseNodeIntoStruct(
-    const FYamlNode&,
-    T&,
-    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
-);
-
-template<typename T>
-bool ParseNodeIntoStruct(
-    const FYamlNode&,
-    T&,
-    FYamlParseIntoCtx&,
-    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
-);
-
-bool ParseNodeIntoStruct(
-    const FYamlNode&,
-    const UScriptStruct*,
-    void*,
-    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
-);
-
-bool ParseNodeIntoStruct(
-    const FYamlNode&,
-    const UScriptStruct*,
-    void*,
-    FYamlParseIntoCtx&,
-    const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
-);
 
 UCLASS(BlueprintType)
 class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     GENERATED_BODY()
+    
+    template<typename T>
+    friend bool ParseNodeIntoObject(const FYamlNode&, T*);
+    template<typename T>
+    friend bool ParseNodeIntoStruct(const FYamlNode&, T&);
 
     template<typename T>
     friend bool ParseNodeIntoStruct(const FYamlNode&, T&, const FYamlParseIntoOptions&);
@@ -299,6 +272,21 @@ private:
     }
 };
 
+
+/** C++ Wrapper for UYamlParsing::ParseIntoStruct */
+template<typename T>
+FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn) {
+    FYamlParseIntoCtx _ = FYamlParseIntoCtx();
+    return UYamlParsing::ParseIntoStruct(Node, T::StaticStruct(), &StructIn, _);
+}
+
+/** C++ Wrapper for UYamlParsing::ParseIntoObject */
+template<typename T>
+FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn) {
+    static_assert(TIsDerivedFrom<T, UObject>::Value);
+    FYamlParseIntoCtx _ = FYamlParseIntoCtx();
+    return UYamlParsing::ParseIntoObject(Node, T::StaticClass(), ObjectIn, _);
+}
 
 /** C++ Wrapper for UYamlParsing::ParseIntoStruct */
 template<typename T>

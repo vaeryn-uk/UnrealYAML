@@ -5,15 +5,20 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+#if ENGINE_MAJOR_VERSION >= 5
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(ConvertToStruct, "UnrealYAML.ConvertToStruct",
                                  EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+#else
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(ConvertToStruct, "UnrealYAML.ConvertToStruct",
+                                 EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+#endif
 
 void AssertSimpleStructValues(ConvertToStruct* TestCase, const FSimpleStruct& SimpleStruct);
 template <typename StructType>
 void AssertInvalidParseInto(const TCHAR* Yaml, const TCHAR* What, ConvertToStruct* TestCase, const TArray<FString> Errors);
 
 bool ConvertToStruct::RunTest(const FString& Parameters) {
-    // Simple Yaml
+    // Simple YAML to Struct
     {
         FYamlNode Node;
         UYamlParsing::ParseYaml(SimpleYaml, Node);
@@ -21,6 +26,15 @@ bool ConvertToStruct::RunTest(const FString& Parameters) {
         FSimpleStruct SimpleStruct;
         TestTrue("Parse Node into SimpleStruct", ParseNodeIntoStruct(Node, SimpleStruct));
         AssertSimpleStructValues(this, SimpleStruct);
+    }
+    
+    // Simple YAML to Object
+    {
+        FYamlNode Node;
+        UYamlParsing::ParseYaml(SimpleYaml, Node);
+
+        USimpleObject* SimpleObject = NewObject<USimpleObject>(GetTransientPackage());
+        TestTrue("Parse Node into SimpleObject", ParseNodeIntoObject(Node, SimpleObject));
     }
 
     // CPP non-template ParseIntoStruct
@@ -30,7 +44,7 @@ bool ConvertToStruct::RunTest(const FString& Parameters) {
 
         uint8* StructData = (uint8*)FMemory::Malloc(FSimpleStruct::StaticStruct()->GetStructureSize());
         FSimpleStruct::StaticStruct()->InitializeDefaultValue(StructData);
-        TestTrue("Parse Node into dynamic SimpleStruct", ParseNodeIntoStruct(Node, FSimpleStruct::StaticStruct(), StructData));
+        TestTrue("Parse Node into dynamic SimpleStruct", ParseNodeIntoStruct(Node, FSimpleStruct::StaticStruct(), StructData, FYamlParseIntoOptions()));
 
         FSimpleStruct* Struct = reinterpret_cast<FSimpleStruct*>(StructData);
         AssertSimpleStructValues(this, *Struct);
