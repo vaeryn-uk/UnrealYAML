@@ -278,7 +278,13 @@ private:
 
     static bool CheckNodeType(FYamlParseIntoCtx& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName, const FYamlNode& Node);
 
-    static bool CheckEnumValue(FYamlParseIntoCtx& Ctx, const FYamlNode& Node, const UEnum* Enum);
+    /**
+     * Attempts to resolve an enum value for the given node, returning -1 and setting
+     * errors on Ctx if failing to do so.
+     *
+     * This supports string (case-insensitive) and integer representations in YAML.
+     */
+    static int64 ResolveEnumValue(FYamlParseIntoCtx& Ctx, const FYamlNode& Node, const UEnum* Enum);
 
     // Resolves a UObject by its path, or nullptr if not found.
     template <typename BaseClass>

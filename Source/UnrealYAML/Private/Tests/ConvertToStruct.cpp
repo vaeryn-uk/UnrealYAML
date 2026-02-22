@@ -100,9 +100,8 @@ mappedchildren:
     value1: [1, 2, 3]
     value3: 13
 )yaml");
-        const auto Test = TEXT("Invalid parent child");
-
-        AssertInvalidParseInto<FParentStruct>(Yaml, Test, this, {
+        
+        AssertInvalidParseInto<FParentStruct>(Yaml, TEXT("Invalid parent child"), this, {
             ".Embedded.SomeValues: value is not a sequence",
             ".Embedded.AFloat: cannot convert \"foobar\" to type float",
             ".Children.[0]: value is not a map",
@@ -139,12 +138,40 @@ mappedchildren:
         TestEqual("EnumAsByte parse value", Struct.AnEnum, TEnumAsByte(EAnEnum::Value2));
     }
 
+    // Test parsing in to an enum (as integer).
+    {
+        FYamlNode Node;
+        UYamlParsing::ParseYaml("anenum: 0", Node);
+
+        FEnumStruct Struct;
+        FYamlParseIntoCtx Result;
+        ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
+
+        TestTrue("Enum(int) parse", Result.Success());
+        TestEqual("Enum(int) parse value", Struct.AnEnum, EAnEnumClass::Value1);
+
+        TestTrue("Enum(int) parse operator bool()", Result);
+    }
+
+    // Test parsing in to an TEnumAsByte wrapper (as integer).
+    {
+        FYamlNode Node;
+        UYamlParsing::ParseYaml("anenum: 1", Node);
+
+        FEnumAsByteStruct Struct;
+        FYamlParseIntoCtx Result;
+        ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
+
+        TestTrue("EnumAsByte(int) parse", Result.Success());
+        TestEqual("EnumAsByte(int) parse value", Struct.AnEnum, TEnumAsByte(EAnEnum::Value2));
+    }
+
     // Test invalid parsing for enums.
     {
-        const auto Yaml = TEXT("anenum: notaknownvalue");
+        const auto Yaml = TEXT("anenum: []");
         const auto Test = TEXT("Invalid EnumClass");
         AssertInvalidParseInto<FEnumStruct>(Yaml, Test, this, {
-            ".AnEnum: \"notaknownvalue\" is not an allowed value for enum EAnEnumClass",
+            ".AnEnum: YAML type \"sequence\" is not an allowed value for enum EAnEnumClass",
         });
     }
 
@@ -408,6 +435,10 @@ void AssertInvalidParseInto(const TCHAR* Yaml, const TCHAR* What, ConvertToStruc
 
     TestCase->TestFalse(FString::Printf(TEXT("%ls fails as expected"), What), Result.Success());
     if (!TestCase->TestEqual(FString::Printf(TEXT("%ls error count"), What), Result.Errors.Num(), Errors.Num())) {
+        for (const auto& Entry : Result.Errors) {
+            TestCase->AddError(FString::Printf(TEXT("Parse error: %s"), *Entry));
+        }
+        
         return;
     }
 
