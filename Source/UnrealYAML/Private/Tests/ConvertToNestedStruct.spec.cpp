@@ -46,7 +46,7 @@ mappedchildren:
         UYamlParsing::ParseYaml(Yaml, Node);
 
         FParentStruct Struct;
-        FYamlParseIntoCtx Result;
+        FYamlParseIntoResult Result;
         ParseNodeIntoStruct(Node, Struct, Result, FYamlParseIntoOptions::Strict());
         
         It("Embedded child values", [this, Result, Struct]() {

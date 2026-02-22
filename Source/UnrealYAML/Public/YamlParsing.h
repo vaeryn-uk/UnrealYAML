@@ -54,17 +54,17 @@ struct UNREALYAML_API FYamlParseIntoOptions {
      * If present, and an incoming YAML structure is missing this property, a validation error will occur.
      */
     UPROPERTY()
-    bool CheckRequired = false;
+    bool RespectRequiredProperties = false;
 
     /**
      * If true, validation will fail if the YAML contains properties that do not match with
      * a property in the struct being parsed.
      */
     UPROPERTY()
-    bool CheckAdditionalProperties = false;
+    bool AllowUnusedValues = true;
 
     typedef TFunction<void (const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                  struct FYamlParseIntoCtx& Ctx)> FTypeHandler;
+                                  struct FYamlParseIntoResult& Ctx)> FTypeHandler;
 
     /**
      * Define ParseInto handling for your own types here. By default, ParseIntoStruct will handle
@@ -86,7 +86,7 @@ struct UNREALYAML_API FYamlParseIntoOptions {
  * once parsing is complete.
  */
 USTRUCT()
-struct UNREALYAML_API FYamlParseIntoCtx {
+struct UNREALYAML_API FYamlParseIntoResult {
     GENERATED_BODY()
 
     /**
@@ -117,9 +117,9 @@ struct UNREALYAML_API FYamlParseIntoCtx {
 private:
 
     // Stack access.
-    FYamlParseIntoCtx& PushStack(const TCHAR* Property);
-    FYamlParseIntoCtx& PushStack(const FYamlNode& Key);
-    FYamlParseIntoCtx& PushStack(const int32 Index);
+    FYamlParseIntoResult& PushStack(const TCHAR* Property);
+    FYamlParseIntoResult& PushStack(const FYamlNode& Key);
+    FYamlParseIntoResult& PushStack(const int32 Index);
     void PopStack();
 
     TArray<FString> Stack = {TEXT("")};
@@ -139,7 +139,7 @@ template<typename T>
 bool ParseNodeIntoStruct(
     const FYamlNode&,
     T&,
-    FYamlParseIntoCtx&,
+    FYamlParseIntoResult&,
     const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
 );
 
@@ -154,7 +154,7 @@ bool ParseNodeIntoStruct(
     const FYamlNode&,
     const UScriptStruct*,
     void*,
-    FYamlParseIntoCtx&,
+    FYamlParseIntoResult&,
     const FYamlParseIntoOptions& Options = FYamlParseIntoOptions()
 );
 
@@ -165,10 +165,10 @@ class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     template<typename T>
     friend bool ParseNodeIntoStruct(const FYamlNode&, T&, const FYamlParseIntoOptions&);
     template<typename T>
-    friend bool ParseNodeIntoStruct(const FYamlNode&, T&, FYamlParseIntoCtx&, const FYamlParseIntoOptions&);
+    friend bool ParseNodeIntoStruct(const FYamlNode&, T&, FYamlParseIntoResult&, const FYamlParseIntoOptions&);
     
     friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, const FYamlParseIntoOptions&);
-    friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, FYamlParseIntoCtx&, const FYamlParseIntoOptions&);
+    friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, FYamlParseIntoResult&, const FYamlParseIntoOptions&);
     
     template<typename T>
     friend bool ParseNodeIntoObject(const FYamlNode&, T*);
@@ -244,26 +244,26 @@ public:
         P_FINISH
 
         if (StructProperty) {
-            FYamlParseIntoCtx Ctx;
+            FYamlParseIntoResult Ctx;
             *static_cast<bool*>(RESULT_PARAM) = ParseIntoStruct(Node, StructProperty->Struct, StructPtr, Ctx);
         }
     }
 
 private:
     // Parses a Node into a Single Property. Can be a FStructProperty itself (recursion!)
-    static bool ParseIntoProperty(const FYamlNode& Node, const FProperty& Property, void* PropertyValue, FYamlParseIntoCtx& Ctx);
+    static bool ParseIntoProperty(const FYamlNode& Node, const FProperty& Property, void* PropertyValue, FYamlParseIntoResult& Ctx);
 
     // Parses a Node into a Single Struct. Calls ParseIntoProperty on all Fields
-    static bool ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoCtx& Ctx);
+    static bool ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Ctx);
 
     // Parses a Node into a Single UObject. Calls ParseIntoProperty on all Fields
-    static bool ParseIntoObject(const FYamlNode& Node, const UClass* Object, void* ObjectValue, FYamlParseIntoCtx& Ctx);
+    static bool ParseIntoObject(const FYamlNode& Node, const UClass* Object, void* ObjectValue, FYamlParseIntoResult& Ctx);
 
     // Parses a Node via some predefined conversions in UnrealTypes.h via a switch case (see NativeTypes).
-    static bool ParseIntoNativeType(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoCtx& Ctx);
+    static bool ParseIntoNativeType(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Ctx);
 
     template <typename T>
-    static bool CheckScalarCanConvert(FYamlParseIntoCtx& Ctx, const TCHAR* TypeName, const FYamlNode& Node) {
+    static bool CheckScalarCanConvert(FYamlParseIntoResult& Ctx, const TCHAR* TypeName, const FYamlNode& Node) {
         if (!CheckNodeType(Ctx, EYamlNodeType::Scalar, TEXT("scalar"), Node)) {
             return false;
         }
@@ -276,7 +276,7 @@ private:
         return true;
     }
 
-    static bool CheckNodeType(FYamlParseIntoCtx& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName, const FYamlNode& Node);
+    static bool CheckNodeType(FYamlParseIntoResult& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName, const FYamlNode& Node);
 
     /**
      * Attempts to resolve an enum value for the given node, returning -1 and setting
@@ -284,7 +284,7 @@ private:
      *
      * This supports string (case-insensitive) and integer representations in YAML.
      */
-    static int64 ResolveEnumValue(FYamlParseIntoCtx& Ctx, const FYamlNode& Node, const UEnum* Enum);
+    static int64 ResolveEnumValue(FYamlParseIntoResult& Ctx, const FYamlNode& Node, const UEnum* Enum);
 
     // Resolves a UObject by its path, or nullptr if not found.
     template <typename BaseClass>
@@ -311,14 +311,21 @@ private:
 
 /** C++ Wrapper for UYamlParsing::ParseIntoStruct */
 template<typename T>
+FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn) {
+    FYamlParseIntoResult _ = FYamlParseIntoResult();
+    return UYamlParsing::ParseIntoStruct(Node, T::StaticStruct(), &StructIn, _);
+}
+
+/** C++ Wrapper for UYamlParsing::ParseIntoStruct */
+template<typename T>
 FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn,
                                        const FYamlParseIntoOptions& Options) {
-    FYamlParseIntoCtx Result;
+    FYamlParseIntoResult Result;
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
 }
 template<typename T>
-FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn, FYamlParseIntoCtx& Result,
+FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn, FYamlParseIntoResult& Result,
                                        const FYamlParseIntoOptions& Options) {
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
@@ -337,12 +344,12 @@ FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn) {
  */
 inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
                                 const FYamlParseIntoOptions& Options) {
-    FYamlParseIntoCtx Ctx;
+    FYamlParseIntoResult Ctx;
     Ctx.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Ctx);
 }
 inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                FYamlParseIntoCtx& Result,
+                                FYamlParseIntoResult& Result,
                                 const FYamlParseIntoOptions& Options) {
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Result);
