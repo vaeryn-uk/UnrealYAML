@@ -10,7 +10,11 @@ DECLARE_LOG_CATEGORY_EXTERN(LogYamlParsing, Log, All)
 /**
  * Controls how UnrealYAML's ParseInto operations behave.
  *
- * The default values here preserve previous behaviour before Options was introduced.
+ * Default options:
+ *   - No strict type checking
+ *   - Do not ensure matching enum values
+ *   - Ignore `YamlRequired` metadata on a UPROPERTY
+ *   - Ignore unparsed values in the YAML
  */
 USTRUCT()
 struct UNREALYAML_API FYamlParseIntoOptions {
@@ -20,15 +24,14 @@ struct UNREALYAML_API FYamlParseIntoOptions {
     static FYamlParseIntoOptions Strict();
 
     /**
-     * Ensures that we check that the type of a YAML node matches that which is in
-     * the struct, or can be converted to it.
+     * Ensures that parsed types match what we expect (or can be converted to it).
      *
-     * For example, without this, if a struct expects a TArray, but the corresponding
+     * For example, with this false, if a struct expects a TArray, but the corresponding
      * YAML has a string value, parsing would still be successful. With this enabled,
      * the result will be indicated a failure and a suitable error message provided.
      */
     UPROPERTY()
-    bool CheckTypes = false;
+    bool StrictTypes = false;
 
     /**
      * Ensures that values encountered in YAML which map onto an enum property in a struct
@@ -102,6 +105,10 @@ struct UNREALYAML_API FYamlParseIntoCtx {
      * Returns true if there were no errors encountered in a ParseInto operation.
      */
     bool Success() const;
+
+    operator bool() const {
+        return Success();
+    }
 
     friend class UYamlParsing;
 
@@ -261,7 +268,7 @@ private:
             return false;
         }
 
-        if (Ctx.Options.CheckTypes && Node.IsDefined() && !Node.CanConvertTo<T>()) {
+        if (Ctx.Options.StrictTypes && Node.IsDefined() && !Node.CanConvertTo<T>()) {
             Ctx.AddError(*FString::Printf(TEXT("cannot convert \"%s\" to type %s"), *Node.Scalar(), TypeName));
             return false;
         }
