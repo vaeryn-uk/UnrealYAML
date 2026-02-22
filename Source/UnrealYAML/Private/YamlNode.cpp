@@ -1,4 +1,4 @@
-﻿#include "UnrealYAMLNode.h"
+﻿#include "YamlNode.h"
 
 EYamlNodeType FYamlNode::Type() const {
     try {
