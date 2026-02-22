@@ -81,13 +81,11 @@ bool UYamlParsing::ParseIntoProperty(const FYamlNode& Node, const FProperty& Pro
     }
 
     if (const FEnumProperty* EnumProperty = CastField<FEnumProperty>(&Property)) {
-        if (CheckEnumValue(Ctx, Node, EnumProperty->GetEnum())) {
-            const int64 Index = EnumProperty->GetEnum()->GetIndexByNameString(Node.As<FString>());
+        if (const auto Index = ResolveEnumValue(Ctx, Node, EnumProperty->GetEnum()); Index != INDEX_NONE) {
             EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(PropertyValue, Index);
         }
     } else if (const FByteProperty* ByteProperty = CastField<FByteProperty>(&Property); ByteProperty && ByteProperty->IsEnum()) {
-        if (CheckEnumValue(Ctx, Node, ByteProperty->GetIntPropertyEnum())) {
-            const int64 Index = ByteProperty->GetIntPropertyEnum()->GetIndexByNameString(Node.As<FString>());
+        if (const auto Index = ResolveEnumValue(Ctx, Node, ByteProperty->GetIntPropertyEnum()); Index != INDEX_NONE) {
             ByteProperty->SetIntPropertyValue(PropertyValue, Index);
         }
     } else if (const FNumericProperty* NumericProperty = CastField<FNumericProperty>(&Property)) {
@@ -354,22 +352,51 @@ bool UYamlParsing::CheckNodeType(FYamlParseIntoCtx& Ctx, const EYamlNodeType Exp
     return true;
 }
 
-bool UYamlParsing::CheckEnumValue(FYamlParseIntoCtx& Ctx, const FYamlNode& Node, const UEnum* Enum) {
-    if (!CheckScalarCanConvert<FString>(Ctx, TEXT("string"), Node)) {
-        return false;
+int64 UYamlParsing::ResolveEnumValue(FYamlParseIntoCtx& Ctx, const FYamlNode& Node, const UEnum* Enum) {
+    if (Node.CanConvertTo<int>()) {
+        if (Ctx.Options.CheckEnums && Node.IsDefined()) {
+            const int Value(Node.As<int>());
+
+            if (Enum->GetValueByIndex(Value) == INDEX_NONE) {
+                Ctx.AddError(*FString::Printf(
+                    TEXT("%d (integer) is not an allowed value for enum %s"),
+                    Value,
+                    *Enum->CppType
+                ));
+                
+                return INDEX_NONE;
+            }
+        }
+
+        return Enum->GetValueByIndex(Node.As<int>());
+    }
+    
+    if (Node.CanConvertTo<FString>()) {
+        if (Ctx.Options.CheckEnums && Node.IsDefined()) {
+            const FString Value(Node.As<FString>());
+
+            if (Enum->GetIndexByNameString(Value) == INDEX_NONE) {
+                Ctx.AddError(*FString::Printf(
+                    TEXT("\"%s\" is not an allowed value for enum %s"),
+                    *Value,
+                    *Enum->CppType
+                ));
+                
+                return INDEX_NONE;
+            }
+        }
+
+        return Enum->GetIndexByNameString(Node.As<FString>());
     }
 
     if (Ctx.Options.CheckEnums && Node.IsDefined()) {
-        const FString Value(Node.As<FString>());
-
-        if (Enum->GetIndexByNameString(Value) == INDEX_NONE) {
-            Ctx.AddError(*FString::Printf(
-                TEXT("\"%s\" is not an allowed value for enum %s"),
-                *Value,
-                *Enum->CppType));
-            return false;
-        }
+        // If we arrive here and still have not been able to resolve to an enum, this must be a bad type.
+        Ctx.AddError(*FString::Printf(
+            TEXT("YAML type \"%s\" is not an allowed value for enum %s"),
+            *EnumToString(Node.Type()),
+            *Enum->CppType
+        ));
     }
 
-    return true;
+    return INDEX_NONE;
 }
