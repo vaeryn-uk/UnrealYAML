@@ -64,7 +64,7 @@ struct UNREALYAML_API FYamlParseIntoOptions {
     bool AllowUnusedValues = true;
 
     typedef TFunction<void (const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                  struct FYamlParseIntoResult& Ctx)> FTypeHandler;
+                                  struct FYamlParseIntoResult& Result)> FTypeHandler;
 
     /**
      * Define ParseInto handling for your own types here. By default, ParseIntoStruct will handle
@@ -161,7 +161,9 @@ bool ParseNodeIntoStruct(
 UCLASS(BlueprintType)
 class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     GENERATED_BODY()
-
+    
+    template<typename T>
+    friend bool ParseNodeIntoObject(const FYamlNode&, T*, const FYamlParseIntoOptions&);
     template<typename T>
     friend bool ParseNodeIntoStruct(const FYamlNode&, T&, const FYamlParseIntoOptions&);
     template<typename T>
@@ -169,9 +171,6 @@ class UNREALYAML_API UYamlParsing final : public UBlueprintFunctionLibrary {
     
     friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, const FYamlParseIntoOptions&);
     friend bool ParseNodeIntoStruct(const FYamlNode&, const UScriptStruct*, void*, FYamlParseIntoResult&, const FYamlParseIntoOptions&);
-    
-    template<typename T>
-    friend bool ParseNodeIntoObject(const FYamlNode&, T*);
 
     // Some conversion are defined in UnrealTypes.h. But FProperty does not provide a way to retrieve the Type, except as
     // an FString. This provides a list of all Types (as String) that can be directly converted via those conversion instead
@@ -251,32 +250,32 @@ public:
 
 private:
     // Parses a Node into a Single Property. Can be a FStructProperty itself (recursion!)
-    static bool ParseIntoProperty(const FYamlNode& Node, const FProperty& Property, void* PropertyValue, FYamlParseIntoResult& Ctx);
+    static bool ParseIntoProperty(const FYamlNode& Node, const FProperty& Property, void* PropertyValue, FYamlParseIntoResult& Result);
 
     // Parses a Node into a Single Struct. Calls ParseIntoProperty on all Fields
-    static bool ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Ctx);
+    static bool ParseIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Result);
 
     // Parses a Node into a Single UObject. Calls ParseIntoProperty on all Fields
-    static bool ParseIntoObject(const FYamlNode& Node, const UClass* Object, void* ObjectValue, FYamlParseIntoResult& Ctx);
+    static bool ParseIntoObject(const FYamlNode& Node, const UClass* Object, void* ObjectValue, FYamlParseIntoResult& Result);
 
     // Parses a Node via some predefined conversions in UnrealTypes.h via a switch case (see NativeTypes).
-    static bool ParseIntoNativeType(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Ctx);
+    static bool ParseIntoNativeType(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue, FYamlParseIntoResult& Result);
 
     template <typename T>
-    static bool CheckScalarCanConvert(FYamlParseIntoResult& Ctx, const TCHAR* TypeName, const FYamlNode& Node) {
-        if (!CheckNodeType(Ctx, EYamlNodeType::Scalar, TEXT("scalar"), Node)) {
+    static bool CheckScalarCanConvert(FYamlParseIntoResult& Result, const TCHAR* TypeName, const FYamlNode& Node) {
+        if (!CheckNodeType(Result, EYamlNodeType::Scalar, TEXT("scalar"), Node)) {
             return false;
         }
 
-        if (Ctx.Options.StrictTypes && Node.IsDefined() && !Node.CanConvertTo<T>()) {
-            Ctx.AddError(*FString::Printf(TEXT("cannot convert \"%s\" to type %s"), *Node.Scalar(), TypeName));
+        if (Result.Options.StrictTypes && Node.IsDefined() && !Node.CanConvertTo<T>()) {
+            Result.AddError(*FString::Printf(TEXT("cannot convert \"%s\" to type %s"), *Node.Scalar(), TypeName));
             return false;
         }
 
         return true;
     }
 
-    static bool CheckNodeType(FYamlParseIntoResult& Ctx, const EYamlNodeType Expected, const TCHAR* TypeName, const FYamlNode& Node);
+    static bool CheckNodeType(FYamlParseIntoResult& Result, const EYamlNodeType Expected, const TCHAR* TypeName, const FYamlNode& Node);
 
     /**
      * Attempts to resolve an enum value for the given node, returning -1 and setting
@@ -284,7 +283,7 @@ private:
      *
      * This supports string (case-insensitive) and integer representations in YAML.
      */
-    static int64 ResolveEnumValue(FYamlParseIntoResult& Ctx, const FYamlNode& Node, const UEnum* Enum);
+    static int64 ResolveEnumValue(FYamlParseIntoResult& Result, const FYamlNode& Node, const UEnum* Enum);
 
     // Resolves a UObject by its path, or nullptr if not found.
     template <typename BaseClass>
@@ -308,34 +307,29 @@ private:
     }
 };
 
-
-/** C++ Wrapper for UYamlParsing::ParseIntoStruct */
+/** C++ Wrapper for UYamlParsing::ParseIntoObject */
 template<typename T>
-FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn) {
-    FYamlParseIntoResult _ = FYamlParseIntoResult();
-    return UYamlParsing::ParseIntoStruct(Node, T::StaticStruct(), &StructIn, _);
+FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn,
+                                       const FYamlParseIntoOptions& Options = {}) {
+    static_assert(TIsDerivedFrom<T, UObject>::Value);
+    FYamlParseIntoResult Result;
+    Result.Options = Options;
+    return UYamlParsing::ParseIntoObject(Node, T::StaticClass(), ObjectIn, Result);
 }
 
 /** C++ Wrapper for UYamlParsing::ParseIntoStruct */
 template<typename T>
 FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn,
-                                       const FYamlParseIntoOptions& Options) {
+                                       const FYamlParseIntoOptions& Options = {}) {
     FYamlParseIntoResult Result;
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
 }
 template<typename T>
 FORCENOINLINE bool ParseNodeIntoStruct(const FYamlNode& Node, T& StructIn, FYamlParseIntoResult& Result,
-                                       const FYamlParseIntoOptions& Options) {
+                                       const FYamlParseIntoOptions& Options = {}) {
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, StructIn.StaticStruct(), &StructIn, Result);
-}
-
-/** C++ Wrapper for UYamlParsing::ParseIntoObject */
-template<typename T>
-FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn) {
-    static_assert(TIsDerivedFrom<T, UObject>::Value);
-    return UYamlParsing::ParseIntoObject(Node, T::StaticClass(), ObjectIn);
 }
 
 /** Parse the given YAML in to a struct whose type is not known at compile time. This is useful
@@ -343,14 +337,14 @@ FORCENOINLINE bool ParseNodeIntoObject(const FYamlNode& Node, T* ObjectIn) {
  * data tables.
  */
 inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
-                                const FYamlParseIntoOptions& Options) {
+                                const FYamlParseIntoOptions& Options = {}) {
     FYamlParseIntoResult Ctx;
     Ctx.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Ctx);
 }
 inline bool ParseNodeIntoStruct(const FYamlNode& Node, const UScriptStruct* Struct, void* StructValue,
                                 FYamlParseIntoResult& Result,
-                                const FYamlParseIntoOptions& Options) {
+                                const FYamlParseIntoOptions& Options = {}) {
     Result.Options = Options;
     return UYamlParsing::ParseIntoStruct(Node, Struct, StructValue, Result);
 }
