@@ -6,7 +6,7 @@
 #include "Enums.h"
 #include "Emitter.h"
 
-#include "UnrealYAMLNode.generated.h"
+#include "YamlNode.generated.h"
 
 
 /** A wrapper for the Yaml Node class. Base YAML class. Stores a YAML-Structure in a Tree-like hierarchy.

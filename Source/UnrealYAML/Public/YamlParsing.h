@@ -1,8 +1,8 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "UnrealYAMLNode.h"
-#include "Parsing.generated.h"
+#include "YamlNode.h"
+#include "YamlParsing.generated.h"
 
 
 DECLARE_LOG_CATEGORY_EXTERN(LogYamlParsing, Log, All)
