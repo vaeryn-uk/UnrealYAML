@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "YamlNode.h"
-#include "Parsing.generated.h"
+#include "YamlParsing.generated.h"
 
 
 DECLARE_LOG_CATEGORY_EXTERN(LogYamlParsing, Log, All)

@@ -1,5 +1,5 @@
 ﻿#include "Misc/AutomationTest.h"
-#include "Parsing.h"
+#include "YamlParsing.h"
 #include "Inputs.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
