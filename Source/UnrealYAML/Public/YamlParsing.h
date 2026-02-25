@@ -85,7 +85,7 @@ struct UNREALYAML_API FYamlParseIntoOptions {
  * State for running ParseInto operations. This provides detailed error information
  * once parsing is complete.
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct UNREALYAML_API FYamlParseIntoResult {
     GENERATED_BODY()
 
@@ -98,7 +98,7 @@ struct UNREALYAML_API FYamlParseIntoResult {
     /**
      * Errors that occurred whilst trying to parse YAML in to a struct.
      */
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     TArray<FString> Errors;
 
     /**
@@ -180,11 +180,13 @@ public:
      * 
      * @param Node The Node we want to Parse
      * @param Struct An instance of the Struct we want to parse into
+     * @param Strict If true, ensures that types in YAML data match the struct, and that only known properties are present.
+     * @param Result Detailed parse result with errors.
      * @return Whether all Fields of the Struct were successfully parsed.
      */
     UFUNCTION(BlueprintCallable, CustomThunk, DisplayName="Parse Node into Struct", Category="YAML",
         meta=(CustomStructureParam="Struct"))
-    static bool ParseIntoStruct_BP(const FYamlNode& Node, const int32& Struct) {
+    static bool ParseIntoStruct_BP(const FYamlNode& Node, const int32& Struct, FYamlParseIntoResult& Result, const bool Strict = false) {
         checkNoEntry()
         return false;
     }
@@ -204,12 +206,21 @@ public:
 
         // Grab the base address where the struct actually stores its data. This is where the property value is truly stored
         void* StructPtr = Stack.MostRecentPropertyAddress;
+        P_GET_STRUCT_REF(FYamlParseIntoResult, Result)
+        P_GET_UBOOL(Strict)
 
         P_FINISH
 
+        Result = FYamlParseIntoResult();
+        *static_cast<bool*>(RESULT_PARAM) = false;
         if (StructProperty) {
-            FYamlParseIntoResult Ctx;
-            *static_cast<bool*>(RESULT_PARAM) = ParseIntoStruct(Node, StructProperty->Struct, StructPtr, Ctx);
+            if (Strict) {
+                Result.Options = FYamlParseIntoOptions::Strict();
+            }
+            
+            ParseIntoStruct(Node, StructProperty->Struct, StructPtr, Result);
+
+            *static_cast<bool*>(RESULT_PARAM) = Result.Success();
         }
     }
 
