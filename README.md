@@ -27,6 +27,10 @@ Welcome to the UnrealYAML Plugin, a Plugin that allows the parsing and emitting 
 		- Ensuring that string values in YAML map to a value in the appropriate `UENUM`.
 		- Check for any properties in the YAML that don't map onto a property in a `USTRUCT`.
 
+### Blueprint Example
+
+![blueprint_example.png](blueprint_example.png)
+
 ### TODO
 - Node into Struct Parsing:
 	- With Blueprint Structs (if possible)
